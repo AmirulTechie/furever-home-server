@@ -1,6 +1,6 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
 const express = require('express');
 const cors = require('cors');
@@ -39,18 +39,17 @@ async function run() {
     const petsCollection = db.collection('pets');
 
     app.get('/pets', async(req,res)=>{
-      const {courseId} = req.params;
-      const result = await petsCollection.find().toArray();
+      const cursor = petsCollection.find();
+      const result = await cursor.toArray();
       res.send(result);
     })
 
-    app.get('/pets/:petId', async(req,res)=>{
+    app.get('/pets/:petId', async (req, res) => {
       const petId = req.params.petId;
-      const query = { _id: petId };
+      const query = { _id: new ObjectId(petId) };
       const result = await petsCollection.findOne(query);
       res.send(result);
-    })
-
+    });
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } catch (error) {
