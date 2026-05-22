@@ -28,13 +28,47 @@ const logger = (req, res, next) => {
   next();
 };
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Login required" });
+
   try {
-    req.user = jwt.verify(token, process.env.BETTER_AUTH_SECRET);
+    // fetch the JWKS (public keys) from better-auth
+    const jwksRes = await fetch("http://localhost:3000/api/auth/jwks");
+    const { keys } = await jwksRes.json();
+
+    // import the public key
+    const publicKey = await crypto.subtle.importKey(
+      "jwk",
+      keys[0],
+      { name: "Ed25519" },
+      false,
+      ["verify"]
+    );
+
+    // split the token
+    const [headerB64, payloadB64, sigB64] = token.split(".");
+
+    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+
+    // decode base64url signature
+    const sig = Uint8Array.from(
+      atob(sigB64.replace(/-/g, "+").replace(/_/g, "/")),
+      (c) => c.charCodeAt(0)
+    );
+
+    const valid = await crypto.subtle.verify("Ed25519", publicKey, sig, data);
+    if (!valid) return res.status(401).json({ error: "Invalid token" });
+
+    // decode payload
+    const payload = JSON.parse(
+      Buffer.from(payloadB64, "base64url").toString("utf8")
+    );
+
+    req.user = payload;
     next();
-  } catch {
+  } catch (err) {
+    console.log("Auth error:", err.message);
     return res.status(401).json({ error: "Invalid token" });
   }
 };
@@ -62,7 +96,11 @@ async function run() {
       const result = await petsCollection.findOne({ _id: new ObjectId(petId) });
       res.send(result);
     });
-
+    app.post('/pets', verifyToken, async (req, res) => {
+    const pet = req.body;
+    const result = await petsCollection.insertOne(pet);
+    res.send(result);
+    });
     console.log("Successfully connected to MongoDB!");
   } catch (error) {
     console.error("Database connection error:", error);
