@@ -6,7 +6,7 @@ This is the backend API server for the Pet Adoption Platform. It provides secure
 
 ## Live API URL
 
-[https://your-server-url.vercel.app](https://your-server-url.vercel.app)
+[https://furever-home-server.vercel.app/](https://furever-home-server.vercel.app/)
 
 ## Features
 
